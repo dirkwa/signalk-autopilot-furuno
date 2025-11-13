@@ -1,0 +1,11 @@
+{
+  "javascript.validate.enable": true,
+  "javascript.suggestionActions.enabled": true,
+  "editor.formatOnSave": false,
+  "files.exclude": {
+    "node_modules": true
+  },
+  "search.exclude": {
+    "node_modules": true
+  }
+}
