@@ -1,23 +1,3 @@
-import { Plugin, ServerAPI } from '@signalk/server-api'
-import { AutopilotProvider, AutopilotUpdateMessage } from '@signalk/server-api'
-
-interface PluginConfig {
-  enabled: boolean
-  deviceId: string
-  hullType: string
-}
-
-interface FurunoState {
-  state: 'enabled' | 'disabled'
-  mode: 'standby' | 'auto' | 'wind' | 'route' | 'fishingPattern'
-  target: number
-  engaged: boolean
-  heading?: number
-  windAngle?: number
-  rudderAngle?: number
-  xte?: number
-}
-
 const FURUNO_PGNS = {
   // Heading & Navigation
   HEADING: 127250,
@@ -37,7 +17,7 @@ const FURUNO_PGNS = {
   FURUNO_COMMAND: 130850
 }
 
-const FURUNO_MODES: { [key: string]: number } = {
+const FURUNO_MODES = {
   standby: 0,
   auto: 1,
   wind: 2,
@@ -45,219 +25,29 @@ const FURUNO_MODES: { [key: string]: number } = {
   fishingPattern: 4
 }
 
-module.exports = function (app: ServerAPI): Plugin {
-  const plugin: Plugin = {
+/**
+ * Signal K Plugin for Furuno NavPilot-711C Autopilot
+ * @param {object} app - Signal K server app object
+ * @returns {object} Plugin object
+ */
+module.exports = function (app) {
+  const plugin = {
     id: 'signalk-autopilot-furuno',
     name: 'Furuno NavPilot-711C Autopilot Provider',
     description: 'Signal K Autopilot Provider for Furuno NavPilot-711C via NMEA2000'
   }
 
-  let deviceId: string
-  let currentState: FurunoState = {
+  let deviceId
+  let currentState = {
     state: 'disabled',
     mode: 'standby',
     target: 0,
     engaged: false
   }
-  let n2kCallback: any
-
-  // Define the autopilot provider interface
-  const autopilotProvider: AutopilotProvider = {
-    
-    getData: (apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-      
-      return {
-        options: {
-          states: ['enabled', 'disabled'],
-          modes: ['standby', 'auto', 'wind', 'route', 'fishingPattern'],
-          actions: [
-            { id: 'tack', name: 'Tack', available: currentState.mode === 'wind' },
-            { id: 'adjustHeading', name: 'Adjust Heading', available: currentState.mode === 'auto' },
-            { id: 'advanceWaypoint', name: 'Advance Waypoint', available: currentState.mode === 'route' }
-          ]
-        },
-        state: currentState.state,
-        mode: currentState.mode,
-        target: currentState.target,
-        engaged: currentState.engaged
-      }
-    },
-
-    getState: (apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-      return currentState.state
-    },
-
-    setState: (state: string, apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-      
-      if (state !== 'enabled' && state !== 'disabled') {
-        throw new Error(`Invalid state: ${state}`)
-      }
-
-      currentState.state = state as 'enabled' | 'disabled'
-      
-      // Send N2K command to enable/disable autopilot
-      if (state === 'disabled') {
-        currentState.mode = 'standby'
-        currentState.engaged = false
-        sendAutopilotMode('standby')
-      }
-      
-      updateAutopilotData()
-      return Promise.resolve()
-    },
-
-    getMode: (apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-      return currentState.mode
-    },
-
-    setMode: (mode: string, apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-
-      const validModes = ['standby', 'auto', 'wind', 'route', 'fishingPattern']
-      if (!validModes.includes(mode)) {
-        throw new Error(`Invalid mode: ${mode}. Valid modes: ${validModes.join(', ')}`)
-      }
-
-      currentState.mode = mode as any
-      currentState.engaged = mode !== 'standby'
-      
-      if (mode !== 'standby') {
-        currentState.state = 'enabled'
-      }
-
-      sendAutopilotMode(mode)
-      updateAutopilotData()
-      return Promise.resolve()
-    },
-
-    getTarget: (apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-      return currentState.target
-    },
-
-    setTarget: (value: number, apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-
-      // Value is in radians
-      currentState.target = value
-
-      if (currentState.mode === 'auto') {
-        sendHeadingCommand(value)
-      } else if (currentState.mode === 'wind') {
-        sendWindAngleCommand(value)
-      }
-
-      updateAutopilotData()
-      return Promise.resolve()
-    },
-
-    adjustTarget: (value: number, apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-
-      // Adjust current target by value (in radians)
-      currentState.target += value
-      
-      // Normalize to 0-2π
-      while (currentState.target < 0) currentState.target += 2 * Math.PI
-      while (currentState.target >= 2 * Math.PI) currentState.target -= 2 * Math.PI
-
-      if (currentState.mode === 'auto') {
-        sendHeadingCommand(currentState.target)
-      }
-
-      updateAutopilotData()
-      return Promise.resolve()
-    },
-
-    engage: (apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-
-      currentState.engaged = true
-      currentState.state = 'enabled'
-      
-      if (currentState.mode === 'standby') {
-        currentState.mode = 'auto'
-        sendAutopilotMode('auto')
-      }
-
-      updateAutopilotData()
-      return Promise.resolve()
-    },
-
-    disengage: (apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-
-      currentState.engaged = false
-      currentState.mode = 'standby'
-      sendAutopilotMode('standby')
-      
-      updateAutopilotData()
-      return Promise.resolve()
-    },
-
-    tack: (direction: 'port' | 'starboard', apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-
-      if (currentState.mode !== 'wind') {
-        throw new Error('Tack command only available in wind mode')
-      }
-
-      sendTackCommand(direction)
-      return Promise.resolve()
-    },
-
-    gybe: (direction: 'port' | 'starboard', apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-
-      if (currentState.mode !== 'wind') {
-        throw new Error('Gybe command only available in wind mode')
-      }
-
-      sendGybeCommand(direction)
-      return Promise.resolve()
-    },
-
-    dodge: (value: number, apDeviceId: string) => {
-      if (apDeviceId !== deviceId) {
-        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
-      }
-
-      // Temporary heading adjustment
-      sendDodgeCommand(value)
-      return Promise.resolve()
-    }
-  }
+  let n2kCallback
 
   // Helper functions to send NMEA2000 commands
-  function sendAutopilotMode(mode: string) {
+  function sendAutopilotMode(mode) {
     if (!n2kCallback) return
 
     const modeValue = FURUNO_MODES[mode] || 0
@@ -274,7 +64,7 @@ module.exports = function (app: ServerAPI): Plugin {
     n2kCallback(pgn)
   }
 
-  function sendHeadingCommand(heading: number) {
+  function sendHeadingCommand(heading) {
     if (!n2kCallback) return
 
     // Convert radians to degrees
@@ -292,7 +82,7 @@ module.exports = function (app: ServerAPI): Plugin {
     n2kCallback(pgn)
   }
 
-  function sendWindAngleCommand(angle: number) {
+  function sendWindAngleCommand(angle) {
     if (!n2kCallback) return
 
     // Convert radians to degrees
@@ -310,7 +100,7 @@ module.exports = function (app: ServerAPI): Plugin {
     n2kCallback(pgn)
   }
 
-  function sendTackCommand(direction: 'port' | 'starboard') {
+  function sendTackCommand(direction) {
     if (!n2kCallback) return
 
     const pgn = {
@@ -325,7 +115,7 @@ module.exports = function (app: ServerAPI): Plugin {
     n2kCallback(pgn)
   }
 
-  function sendGybeCommand(direction: 'port' | 'starboard') {
+  function sendGybeCommand(direction) {
     if (!n2kCallback) return
 
     const pgn = {
@@ -340,7 +130,7 @@ module.exports = function (app: ServerAPI): Plugin {
     n2kCallback(pgn)
   }
 
-  function sendDodgeCommand(adjustment: number) {
+  function sendDodgeCommand(adjustment) {
     if (!n2kCallback) return
 
     const adjustmentDeg = adjustment * 180 / Math.PI
@@ -358,7 +148,7 @@ module.exports = function (app: ServerAPI): Plugin {
   }
 
   function updateAutopilotData() {
-    const updateMsg: AutopilotUpdateMessage = {
+    const updateMsg = {
       state: currentState.state,
       mode: currentState.mode,
       target: currentState.target,
@@ -377,7 +167,7 @@ module.exports = function (app: ServerAPI): Plugin {
   }
 
   // Handle incoming NMEA2000 messages from the autopilot
-  function handleN2KMessage(n2k: any) {
+  function handleN2KMessage(n2k) {
     const pgn = n2k.pgn
 
     switch (pgn) {
@@ -405,13 +195,209 @@ module.exports = function (app: ServerAPI): Plugin {
     }
   }
 
-  plugin.start = (settings: PluginConfig) => {
+  // Define the autopilot provider interface
+  const autopilotProvider = {
+    
+    getData: function(apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+      
+      return {
+        options: {
+          states: ['enabled', 'disabled'],
+          modes: ['standby', 'auto', 'wind', 'route', 'fishingPattern'],
+          actions: [
+            { id: 'tack', name: 'Tack', available: currentState.mode === 'wind' },
+            { id: 'adjustHeading', name: 'Adjust Heading', available: currentState.mode === 'auto' },
+            { id: 'advanceWaypoint', name: 'Advance Waypoint', available: currentState.mode === 'route' }
+          ]
+        },
+        state: currentState.state,
+        mode: currentState.mode,
+        target: currentState.target,
+        engaged: currentState.engaged
+      }
+    },
+
+    getState: function(apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+      return currentState.state
+    },
+
+    setState: function(state, apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+      
+      if (state !== 'enabled' && state !== 'disabled') {
+        throw new Error(`Invalid state: ${state}`)
+      }
+
+      currentState.state = state
+      
+      // Send N2K command to enable/disable autopilot
+      if (state === 'disabled') {
+        currentState.mode = 'standby'
+        currentState.engaged = false
+        sendAutopilotMode('standby')
+      }
+      
+      updateAutopilotData()
+      return Promise.resolve()
+    },
+
+    getMode: function(apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+      return currentState.mode
+    },
+
+    setMode: function(mode, apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+
+      const validModes = ['standby', 'auto', 'wind', 'route', 'fishingPattern']
+      if (!validModes.includes(mode)) {
+        throw new Error(`Invalid mode: ${mode}. Valid modes: ${validModes.join(', ')}`)
+      }
+
+      currentState.mode = mode
+      currentState.engaged = mode !== 'standby'
+      
+      if (mode !== 'standby') {
+        currentState.state = 'enabled'
+      }
+
+      sendAutopilotMode(mode)
+      updateAutopilotData()
+      return Promise.resolve()
+    },
+
+    getTarget: function(apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+      return currentState.target
+    },
+
+    setTarget: function(value, apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+
+      // Value is in radians
+      currentState.target = value
+
+      if (currentState.mode === 'auto') {
+        sendHeadingCommand(value)
+      } else if (currentState.mode === 'wind') {
+        sendWindAngleCommand(value)
+      }
+
+      updateAutopilotData()
+      return Promise.resolve()
+    },
+
+    adjustTarget: function(value, apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+
+      // Adjust current target by value (in radians)
+      currentState.target += value
+      
+      // Normalize to 0-2π
+      while (currentState.target < 0) currentState.target += 2 * Math.PI
+      while (currentState.target >= 2 * Math.PI) currentState.target -= 2 * Math.PI
+
+      if (currentState.mode === 'auto') {
+        sendHeadingCommand(currentState.target)
+      }
+
+      updateAutopilotData()
+      return Promise.resolve()
+    },
+
+    engage: function(apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+
+      currentState.engaged = true
+      currentState.state = 'enabled'
+      
+      if (currentState.mode === 'standby') {
+        currentState.mode = 'auto'
+        sendAutopilotMode('auto')
+      }
+
+      updateAutopilotData()
+      return Promise.resolve()
+    },
+
+    disengage: function(apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+
+      currentState.engaged = false
+      currentState.mode = 'standby'
+      sendAutopilotMode('standby')
+      
+      updateAutopilotData()
+      return Promise.resolve()
+    },
+
+    tack: function(direction, apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+
+      if (currentState.mode !== 'wind') {
+        throw new Error('Tack command only available in wind mode')
+      }
+
+      sendTackCommand(direction)
+      return Promise.resolve()
+    },
+
+    gybe: function(direction, apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+
+      if (currentState.mode !== 'wind') {
+        throw new Error('Gybe command only available in wind mode')
+      }
+
+      sendGybeCommand(direction)
+      return Promise.resolve()
+    },
+
+    dodge: function(value, apDeviceId) {
+      if (apDeviceId !== deviceId) {
+        throw new Error(`Unknown autopilot device: ${apDeviceId}`)
+      }
+
+      // Temporary heading adjustment
+      sendDodgeCommand(value)
+      return Promise.resolve()
+    }
+  }
+
+  plugin.start = function(settings) {
     deviceId = settings.deviceId || 'furuno-navpilot-711c'
 
     try {
       // Register as autopilot provider
-      app.registerAutopilotProvider(deviceId, autopilotProvider)
-      app.debug(`Registered Furuno NavPilot-711C autopilot provider: ${deviceId}`)
+      // Note: registerAutopilotProvider takes (provider, deviceIds[])
+      app.registerAutopilotProvider(autopilotProvider, [deviceId])
+      app.debug('Registered Furuno NavPilot-711C autopilot provider: ' + deviceId)
 
       // Subscribe to NMEA2000 messages
       app.on('N2KAnalyzerOut', handleN2KMessage)
@@ -424,17 +410,19 @@ module.exports = function (app: ServerAPI): Plugin {
 
       app.setPluginStatus('Started - NavPilot-711C connected')
     } catch (error) {
-      app.setPluginError(`Failed to start: ${error}`)
+      const errorMsg = 'Failed to start: ' + error.message
+      app.setPluginError(errorMsg)
       throw error
     }
   }
 
-  plugin.stop = () => {
+  plugin.stop = function() {
     try {
       app.removeListener('N2KAnalyzerOut', handleN2KMessage)
       app.setPluginStatus('Stopped')
     } catch (error) {
-      app.setPluginError(`Error stopping: ${error}`)
+      const errorMsg = 'Error stopping: ' + error.message
+      app.setPluginError(errorMsg)
     }
   }
 
