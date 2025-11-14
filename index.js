@@ -408,6 +408,20 @@ module.exports = function (app) {
       // Set initial state
       updateAutopilotData()
 
+      // Emit autopilot info so FreeboardSK can discover it
+      app.handleMessage(plugin.id, {
+        updates: [
+          {
+            values: [
+              {
+                path: 'steering.autopilot.provider',
+                value: deviceId
+              }
+            ]
+          }
+        ]
+      })
+
       app.setPluginStatus('Started - NavPilot-711C connected')
     } catch (error) {
       const errorMsg = 'Failed to start: ' + error.message
@@ -433,8 +447,8 @@ module.exports = function (app) {
       deviceId: {
         type: 'string',
         title: 'Autopilot Device ID',
-        description: 'Unique identifier for this autopilot',
-        default: 'furuno-navpilot-711c'
+        description: 'Unique identifier for this autopilot (use "_default" to make it the default autopilot)',
+        default: '_default'
       },
       hullType: {
         type: 'string',

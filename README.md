@@ -1,9 +1,4 @@
 # signalk-autopilot-furuno
-SK autopilot api support for Furuno autopilots (NavPilot-711C)
-
-# FULLY EXPERIMENTAL!
-
-# signalk-autopilot-furuno
 
 Signal K Autopilot Provider plugin for Furuno NavPilot-711C via NMEA2000.
 
@@ -283,7 +278,7 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
-### v1.0.0 (2025-01-XX)
+### v0.0.1 (2025-11-14)
 - Initial release
 - Full Signal K Autopilot Provider API implementation
 - Support for all NavPilot-711C modes and features
