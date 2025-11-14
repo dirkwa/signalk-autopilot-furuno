@@ -391,7 +391,7 @@ module.exports = function (app) {
   }
 
   plugin.start = function(settings) {
-    deviceId = settings.deviceId || 'furuno-navpilot-711c'
+    deviceId = settings.deviceId || '711c'
 
     try {
       // Register as autopilot provider
@@ -447,8 +447,8 @@ module.exports = function (app) {
       deviceId: {
         type: 'string',
         title: 'Autopilot Device ID',
-        description: 'Unique identifier for this autopilot (use "_default" to make it the default autopilot)',
-        default: '_default'
+        description: 'Unique identifier for this autopilot',
+        default: '711c'
       },
       hullType: {
         type: 'string',
