@@ -49,6 +49,9 @@ module.exports = function (app) {
   let autopilotDetected = false
   let detectionTimeout = null
   let lastMessageTime = null
+  let furunoSourceAddress = null
+  let settings = {}
+  let subscriptions = []
 
   // Helper functions to send NMEA2000 commands
   function sendAutopilotMode(mode) {
@@ -79,7 +82,6 @@ module.exports = function (app) {
       return
     }
 
-    // Convert radians to degrees
     const headingDeg = heading * 180 / Math.PI
     app.debug('sendHeadingCommand() - Sending heading: ' + headingDeg.toFixed(1) + '° (' + heading + ' rad)')
 
@@ -102,7 +104,6 @@ module.exports = function (app) {
       return
     }
 
-    // Convert radians to degrees
     const angleDeg = angle * 180 / Math.PI
     app.debug('sendWindAngleCommand() - Sending wind angle: ' + angleDeg.toFixed(1) + '° (' + angle + ' rad)')
 
@@ -210,8 +211,16 @@ module.exports = function (app) {
   // Handle incoming NMEA2000 messages from the autopilot
   function handleN2KMessage(n2k) {
     const pgn = n2k.pgn
+    
+    // Check for Furuno proprietary command responses
+    if (pgn === FURUNO_PGNS.FURUNO_COMMAND && n2k.src !== undefined) {
+      if (!furunoSourceAddress) {
+        furunoSourceAddress = n2k.src
+        app.debug('Furuno NavPilot-711C detected! Source address: ' + furunoSourceAddress)
+      }
+    }
 
-    // Check if this message is from the autopilot
+    // Check if this message is from autopilot-related PGNs
     const isAutopilotPGN = (
       pgn === FURUNO_PGNS.HEADING ||
       pgn === FURUNO_PGNS.VESSEL_HEADING ||
@@ -220,18 +229,26 @@ module.exports = function (app) {
     )
 
     if (isAutopilotPGN) {
-      lastMessageTime = Date.now()
+      // If we know the Furuno source address, only accept messages from it
+      const isFromFuruno = !furunoSourceAddress || (n2k.src === furunoSourceAddress)
       
-      if (!autopilotDetected) {
-        autopilotDetected = true
-        app.debug('NavPilot-711C detected on NMEA2000 network!')
-        app.setPluginStatus('Connected - NavPilot-711C detected (Device ID: ' + deviceId + ')')
+      if (isFromFuruno) {
+        lastMessageTime = Date.now()
         
-        // Clear the detection timeout
-        if (detectionTimeout) {
-          clearTimeout(detectionTimeout)
-          detectionTimeout = null
+        if (!autopilotDetected) {
+          autopilotDetected = true
+          const srcInfo = n2k.src !== undefined ? ' (N2K Source: ' + n2k.src + ')' : ''
+          app.debug('NavPilot-711C detected on NMEA2000 network!' + srcInfo)
+          app.setPluginStatus('Connected - NavPilot-711C detected (Device ID: ' + deviceId + ')' + srcInfo)
+          
+          if (detectionTimeout) {
+            clearTimeout(detectionTimeout)
+            detectionTimeout = null
+          }
         }
+      } else {
+        app.debug('Ignoring PGN ' + pgn + ' from source ' + n2k.src + ' (expected Furuno at ' + furunoSourceAddress + ')')
+        return
       }
     }
 
@@ -265,12 +282,11 @@ module.exports = function (app) {
     }
   }
 
-  // Check for autopilot timeout (no messages received)
+  // Check for autopilot timeout
   function checkAutopilotConnection() {
     if (autopilotDetected && lastMessageTime) {
       const timeSinceLastMessage = Date.now() - lastMessageTime
       
-      // If no message for 30 seconds, mark as disconnected
       if (timeSinceLastMessage > 30000) {
         autopilotDetected = false
         app.setPluginStatus('Warning - No data from NavPilot-711C (check NMEA2000 connection)')
@@ -279,13 +295,103 @@ module.exports = function (app) {
     }
   }
 
+  // Get source from Signal K data sources
+  function checkSignalKSources() {
+    try {
+      const sources = app.getPath('sources')
+      
+      if (sources) {
+        app.debug('Available Signal K sources: ' + JSON.stringify(Object.keys(sources)))
+        
+        Object.keys(sources).forEach(function(sourceId) {
+          const source = sources[sourceId]
+          
+          if (source && source.label && source.label.toLowerCase().indexOf('furuno') !== -1) {
+            app.debug('Found Furuno source: ' + sourceId + ' - ' + JSON.stringify(source))
+            
+            if (sourceId.match(/\.(\d+)$/)) {
+              const match = sourceId.match(/\.(\d+)$/)
+              const addr = parseInt(match[1])
+              if (!furunoSourceAddress) {
+                furunoSourceAddress = addr
+                app.debug('Extracted Furuno N2K address from source ID: ' + addr)
+              }
+            }
+          }
+        })
+      }
+    } catch (err) {
+      app.debug('Could not check Signal K sources: ' + err.message)
+    }
+  }
+
+  // Subscribe to Signal K paths to detect Furuno source
+  function subscribeToSignalKPaths() {
+    const pathsToMonitor = [
+      'navigation.headingMagnetic',
+      'navigation.headingTrue',
+      'steering.rudderAngle'
+    ]
+
+    pathsToMonitor.forEach(function(path) {
+      const stream = app.streambundle.getSelfStream(path)
+      
+      if (stream) {
+        app.debug('Subscribing to Signal K path: ' + path)
+        
+        const subscription = stream.onValue(function(value) {
+          const metadata = app.getSelfPath(path + '.$source')
+          
+          if (metadata) {
+            app.debug('Path ' + path + ' has source: ' + JSON.stringify(metadata))
+            
+            if (metadata.label && metadata.label.toLowerCase().indexOf('furuno') !== -1) {
+              app.debug('Detected Furuno as source for ' + path)
+              
+              if (metadata.src && !furunoSourceAddress) {
+                furunoSourceAddress = parseInt(metadata.src)
+                app.debug('Auto-detected Furuno N2K source address from Signal K: ' + furunoSourceAddress)
+              }
+            }
+            
+            if (metadata.src && metadata.pgn) {
+              const autopilotPGNs = [127245, 127250, 127251, 127258]
+              if (autopilotPGNs.indexOf(metadata.pgn) !== -1) {
+                app.debug('Found autopilot PGN ' + metadata.pgn + ' from N2K source ' + metadata.src)
+                
+                if (!furunoSourceAddress && settings.autoDetectSource !== false) {
+                  furunoSourceAddress = parseInt(metadata.src)
+                  app.debug('Using N2K source ' + furunoSourceAddress + ' from ' + path)
+                }
+              }
+            }
+          }
+        })
+        
+        subscriptions.push({path: path, unsubscribe: subscription})
+      } else {
+        app.debug('Stream not available for path: ' + path)
+      }
+    })
+  }
+
+  // Unsubscribe from all Signal K paths
+  function unsubscribeFromSignalKPaths() {
+    subscriptions.forEach(function(sub) {
+      if (sub.unsubscribe && typeof sub.unsubscribe === 'function') {
+        sub.unsubscribe()
+        app.debug('Unsubscribed from: ' + sub.path)
+      }
+    })
+    subscriptions = []
+  }
+
   // Define the autopilot provider interface with ASYNC functions
   const autopilotProvider = {
     
     getData: async function(apDeviceId) {
       app.debug('getData() called for device: ' + apDeviceId)
       
-      // Accept both the actual device ID and _default
       if (apDeviceId !== deviceId && apDeviceId !== '_default') {
         app.error('getData() failed: Unknown device ' + apDeviceId + ' (expected: ' + deviceId + ' or _default)')
         throw new Error('Unknown autopilot device: ' + apDeviceId)
@@ -337,7 +443,6 @@ module.exports = function (app) {
       app.debug('Setting autopilot state from ' + currentState.state + ' to ' + state)
       currentState.state = state
       
-      // Send N2K command to enable/disable autopilot
       if (state === 'disabled') {
         app.debug('State disabled - setting mode to standby')
         currentState.mode = 'standby'
@@ -547,30 +652,41 @@ module.exports = function (app) {
     }
   }
 
-  plugin.start = function(settings) {
+  plugin.start = function(config) {
+    settings = config
     deviceId = settings.deviceId || '711c'
 
     try {
       app.debug('Starting Furuno NavPilot-711C plugin with device ID: ' + deviceId)
       
-      // Register as autopilot provider
-      // Note: registerAutopilotProvider takes (provider, deviceIds[])
+      if (settings.n2kSource) {
+        furunoSourceAddress = parseInt(settings.n2kSource)
+        app.debug('Using configured N2K source address: ' + furunoSourceAddress)
+      } else {
+        app.debug('No N2K source configured, attempting auto-detection...')
+        checkSignalKSources()
+      }
+      
       app.registerAutopilotProvider(autopilotProvider, [deviceId])
       app.debug('Registered Furuno NavPilot-711C autopilot provider: ' + deviceId)
 
-      // Subscribe to NMEA2000 messages
       app.on('N2KAnalyzerOut', handleN2KMessage)
       app.debug('Subscribed to N2K messages')
 
-      // Get N2K send capability
+      if (settings.useSignalKPaths !== false) {
+        try {
+          subscribeToSignalKPaths()
+        } catch (err) {
+          app.debug('Could not subscribe to Signal K paths: ' + err.message)
+        }
+      }
+
       n2kCallback = app.emit.bind(app, 'nmea2000out')
       app.debug('N2K send capability initialized')
 
-      // Set initial state
       updateAutopilotData()
       app.debug('Initial autopilot state: ' + JSON.stringify(currentState))
 
-      // Set a timeout to warn if autopilot not detected
       detectionTimeout = setTimeout(function() {
         if (!autopilotDetected) {
           app.setPluginStatus('Warning - NavPilot-711C not detected on NMEA2000 network')
@@ -578,9 +694,8 @@ module.exports = function (app) {
           app.debug('Commands will be sent, but no feedback will be received')
           app.debug('Please check: 1) NavPilot is powered on, 2) NMEA2000 connection, 3) PGN configuration')
         }
-      }, 10000) // Wait 10 seconds for detection
+      }, 10000)
 
-      // Start periodic connection check (every 60 seconds)
       setInterval(checkAutopilotConnection, 60000)
 
       app.setPluginStatus('Started - Waiting for NavPilot-711C... (Device ID: ' + deviceId + ')')
@@ -597,11 +712,12 @@ module.exports = function (app) {
     app.debug('Stopping Furuno NavPilot-711C plugin')
     
     try {
-      // Clear timeouts
       if (detectionTimeout) {
         clearTimeout(detectionTimeout)
         detectionTimeout = null
       }
+      
+      unsubscribeFromSignalKPaths()
       
       app.removeListener('N2KAnalyzerOut', handleN2KMessage)
       app.debug('Unsubscribed from N2K messages')
@@ -622,6 +738,17 @@ module.exports = function (app) {
         title: 'Autopilot Device ID',
         description: 'Unique identifier for this autopilot',
         default: '711c'
+      },
+      n2kSource: {
+        type: 'number',
+        title: 'NMEA2000 Source Address',
+        description: 'N2K source address of the Furuno NavPilot (0-255). Leave empty for auto-detection from Signal K paths.'
+      },
+      useSignalKPaths: {
+        type: 'boolean',
+        title: 'Use Signal K Paths for Detection',
+        description: 'Monitor Signal K paths (navigation.headingMagnetic, steering.rudderAngle) to detect Furuno source',
+        default: true
       },
       hullType: {
         type: 'string',

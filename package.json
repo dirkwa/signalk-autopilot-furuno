@@ -12,14 +12,13 @@
     "autopilot",
     "furuno",
     "navpilot",
-    "navpilot-711c",
-    "nmea2000"
+    "navpilot-711c"
   ],
-  "author": "Your Name",
+  "author": "Dirk Wahrheit",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dirkwa/signalk-autopilot-furuno.git"
+    "url": "git+https://github.com/dirkwa/signalk-autopilot-furuno.git"
   },
   "bugs": {
     "url": "https://github.com/dirkwa/signalk-autopilot-furuno/issues"
