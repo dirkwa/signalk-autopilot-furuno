@@ -46,6 +46,9 @@ module.exports = function (app) {
     engaged: false
   }
   let n2kCallback
+  let autopilotDetected = false
+  let detectionTimeout = null
+  let lastMessageTime = null
 
   // Helper functions to send NMEA2000 commands
   function sendAutopilotMode(mode) {
@@ -208,6 +211,30 @@ module.exports = function (app) {
   function handleN2KMessage(n2k) {
     const pgn = n2k.pgn
 
+    // Check if this message is from the autopilot
+    const isAutopilotPGN = (
+      pgn === FURUNO_PGNS.HEADING ||
+      pgn === FURUNO_PGNS.VESSEL_HEADING ||
+      pgn === FURUNO_PGNS.RUDDER ||
+      pgn === FURUNO_PGNS.XTE
+    )
+
+    if (isAutopilotPGN) {
+      lastMessageTime = Date.now()
+      
+      if (!autopilotDetected) {
+        autopilotDetected = true
+        app.debug('NavPilot-711C detected on NMEA2000 network!')
+        app.setPluginStatus('Connected - NavPilot-711C detected (Device ID: ' + deviceId + ')')
+        
+        // Clear the detection timeout
+        if (detectionTimeout) {
+          clearTimeout(detectionTimeout)
+          detectionTimeout = null
+        }
+      }
+    }
+
     switch (pgn) {
       case FURUNO_PGNS.HEADING:
       case FURUNO_PGNS.VESSEL_HEADING:
@@ -235,6 +262,20 @@ module.exports = function (app) {
           updateAutopilotData()
         }
         break
+    }
+  }
+
+  // Check for autopilot timeout (no messages received)
+  function checkAutopilotConnection() {
+    if (autopilotDetected && lastMessageTime) {
+      const timeSinceLastMessage = Date.now() - lastMessageTime
+      
+      // If no message for 30 seconds, mark as disconnected
+      if (timeSinceLastMessage > 30000) {
+        autopilotDetected = false
+        app.setPluginStatus('Warning - No data from NavPilot-711C (check NMEA2000 connection)')
+        app.debug('Warning: No messages from NavPilot-711C for 30 seconds')
+      }
     }
   }
 
@@ -529,7 +570,20 @@ module.exports = function (app) {
       updateAutopilotData()
       app.debug('Initial autopilot state: ' + JSON.stringify(currentState))
 
-      app.setPluginStatus('Started - NavPilot-711C connected (Device ID: ' + deviceId + ')')
+      // Set a timeout to warn if autopilot not detected
+      detectionTimeout = setTimeout(function() {
+        if (!autopilotDetected) {
+          app.setPluginStatus('Warning - NavPilot-711C not detected on NMEA2000 network')
+          app.debug('Warning: NavPilot-711C not detected after 10 seconds')
+          app.debug('Commands will be sent, but no feedback will be received')
+          app.debug('Please check: 1) NavPilot is powered on, 2) NMEA2000 connection, 3) PGN configuration')
+        }
+      }, 10000) // Wait 10 seconds for detection
+
+      // Start periodic connection check (every 60 seconds)
+      setInterval(checkAutopilotConnection, 60000)
+
+      app.setPluginStatus('Started - Waiting for NavPilot-711C... (Device ID: ' + deviceId + ')')
     } catch (error) {
       const errorMsg = 'Failed to start: ' + error.message
       app.error(errorMsg)
@@ -543,6 +597,12 @@ module.exports = function (app) {
     app.debug('Stopping Furuno NavPilot-711C plugin')
     
     try {
+      // Clear timeouts
+      if (detectionTimeout) {
+        clearTimeout(detectionTimeout)
+        detectionTimeout = null
+      }
+      
       app.removeListener('N2KAnalyzerOut', handleN2KMessage)
       app.debug('Unsubscribed from N2K messages')
       app.setPluginStatus('Stopped')
