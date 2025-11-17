@@ -6,6 +6,11 @@ Signal K Autopilot Provider plugin for Furuno NavPilot-711C via NMEA2000.
 
 # TODO:
 
+Decide what to do with SK setting navigation.course.nextPoint on "goto"
+https://github.com/SignalK/freeboard-sk/issues/301
+
+Wait till sbender improved Canboat Analyzer to see what PNGs are sent.
+
 ## Startup
 Check if all nessecary paths are available (rudder angle, etc)
 
