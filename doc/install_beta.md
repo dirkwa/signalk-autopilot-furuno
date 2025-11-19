@@ -1,6 +1,9 @@
 Install master to RPI5, SK 2.18.0:
 
 
+# @signalk/course-provider
+
+
 # PGN 129285 simulate pull https://github.com/SignalK/signalk-to-nmea2000/pull/121
 ```
 cd ~
@@ -29,8 +32,6 @@ npm install ~/signalk-autopilot-furuno/signalk-autopilot-furuno-0.0.1.tgz
 
 # Restart Signal K
 sudo systemctl restart signalk.service  && journalctl -u signalk -f | grep -i furuno
-
-
 ```
 
 
