@@ -1,31 +1,5 @@
-# signalk-autopilot-furuno
 
-Signal K Autopilot Provider plugin for Furuno NavPilot-711C via NMEA2000.
-
-  PURELY EXPERIMENTAL, DO NOT USE!
-
-
-## Deveopment:
-1. Use https://github.com/dirkwa/visual-analyzer to see transmitted PGNs
-2. Use https://github.com/dirkwa/signalk-to-nmea2000 to get PGN 129284 and fix for PGN 129285
-
-## TODO:
-- Why does TZ sent for 129285 a null as first point? Bug or mandatory?
-
-
-## Startup
-Check if all nessecary paths are available (rudder angle, etc)
-
-## General
-Sniff N2K communication between AP and TZ Pro
-Fork Canboat to support this
-Figure out how to enable etc.
-
-## External work needed
-PGN 129285 missing in SK to N2k: https://github.com/SignalK/signalk-to-nmea2000/issues/136
-
-## TZ for Route mode.
-TZ Pro sents in goto:
+# TZ Pro 4.x sents in goto:
 
 {
   "pgn": 129285,
