@@ -5,106 +5,42 @@ Signal K Autopilot Provider plugin for Furuno NavPilot-711C via NMEA2000.
   PURELY EXPERIMENTAL, DO NOT USE!
 
 
-## Deveopment:
+# Requirements:
+
 1. Use https://github.com/dirkwa/visual-analyzer to see transmitted PGNs
 2. Use https://github.com/dirkwa/signalk-to-nmea2000 to get PGN 129284 and fix for PGN 129285
 
-## TODO:
-- Why does TZ sent for 129285 a null as first point? Bug or mandatory?
 
-
-## Startup
-Check if all nessecary paths are available (rudder angle, etc)
+# TODO:
 
 ## General
-Sniff N2K communication between AP and TZ Pro
-Fork Canboat to support this
-Figure out how to enable etc.
+- Improve PGN 127237 handling, to give feedback on data path "steering.autopilot.*" 
+ - PGN 126208 (NMEA Command/Request/Acknowledge)
+ - PGN 126464 (PGN List TX/RX group funvtion)
+ - PGN 126996 (Product information)
+ - PGN 130827 (Unknown)
+ - PGN 126208 (NMEA Command/Request/Acknowledge)
+ - Or additional fields in PGN 127237 that change based on mode
 
-## External work needed
-PGN 129285 missing in SK to N2k: https://github.com/SignalK/signalk-to-nmea2000/issues/136
+- Alerting is autopilot has a issue and disengages PGN 127237
+ - PGN 65360 (Proprietary Furuno)
+ - PGN 126208 (NMEA Command/Request/Acknowledge)
+ - Or additional fields in PGN 127237 that change based on mode
 
-## TZ for Route mode.
-TZ Pro sents in goto:
+### Questions when comparing Signal K to Timezero Pro:
+- Why does TZ in GOTO sent also 129285? TZ does not. Is it to give the display a destination name?
 
-{
-  "pgn": 129285,
-  "prio": 6,
-  "src": 4,
-  "dst": 255,
-  "timestamp": "2025-11-15T22:32:21.673Z",
-  "description": "Navigation - Route/WP Information",
-  "fields": {
-    "startRps": null,
-    "nitems": 2,
-    "databaseId": 0,
-    "routeId": null,
-    "navigationDirectionInRoute": "Forward",
-    "supplementaryRouteWpDataAvailable": "Off",
-    "reserved": null,
-    "routeName": null,
-    "reserved9": null,
-    "list": [
-      {
-        "wpId": null,
-        "wpName": null,
-        "wpLatitude": -17.6814665,
-        "wpLongitude": 177.3838499
-      },
-      {
-        "wpId": 1,
-        "wpName": "WPT001",
-        "wpLatitude": -17.6936884,
-        "wpLongitude": 177.3707721
-      }
-    ]
-  },
-  "id": "navigationRouteWpInformation"
-}
+## Startup
+- Check if all nessecary paths are available (rudder angle, etc)
 
-{
-  "pgn": 129284,
-  "prio": 3,
-  "src": 4,
-  "dst": 255,
-  "timestamp": "2025-11-15T22:32:31.125Z",
-  "description": "Navigation Data",
-  "fields": {
-    "sid": 127,
-    "distanceToWaypoint": 1934.78,
-    "courseBearingReference": "True",
-    "perpendicularCrossed": "No",
-    "arrivalCircleEntered": "No",
-    "calculationType": "Rhumbline",
-    "etaTime": null,
-    "etaDate": null,
-    "bearingOriginToDestinationWaypoint": 3.9396,
-    "bearingPositionToDestinationWaypoint": 3.9409,
-    "originWaypointNumber": null,
-    "destinationWaypointNumber": 1,
-    "destinationLatitude": -17.6936884,
-    "destinationLongitude": 177.3707721,
-    "waypointClosingVelocity": 0
-  },
-  "id": "navigationData"
-}
-
-{
-  "pgn": 129283,
-  "prio": 3,
-  "src": 4,
-  "dst": 255,
-  "timestamp": "2025-11-15T22:32:52.161Z",
-  "description": "Cross Track Error",
-  "fields": {
-    "sid": 147,
-    "xteMode": "Autonomous",
-    "reserved": null,
-    "navigationTerminated": "No",
-    "xte": -2.54,
-    "reserved6": null
-  },
-  "id": "crossTrackError"
-}
+## Future wish
+- Figure out how to remotely enable the Autopilot
+- Get feedback to SK on status changes at the Furuno display (f.e. Auto -> Standby) to prevent logic loops
+- Migrate to SK autopilot project
 
 
+# Known Limitations
+
+## WIND-Mode
+- Furuno FAP-7002 does not support wind mode remote
+https://www.furuno.it/docs/OPERATOR_MANUAL/OME45120D_TZT9F_12F_16F_19F.pdf
