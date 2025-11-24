@@ -3,7 +3,7 @@
 Signal K Autopilot Provider plugin for Furuno NavPilot-711C via NMEA2000.
 
   PURELY EXPERIMENTAL, DO NOT USE!
-
+  see doc/install_beta.md
 
 # Requirements:
 
@@ -16,22 +16,17 @@ Signal K Autopilot Provider plugin for Furuno NavPilot-711C via NMEA2000.
 ## General
 - Improve PGN 127237 handling, to give feedback on data path "steering.autopilot.*" 
  - PGN 126208 (NMEA Command/Request/Acknowledge)
- - PGN 126464 (PGN List TX/RX group funvtion)
- - PGN 126996 (Product information)
+ - PGN 126464 (PGN List TX/RX group function)
  - PGN 130827 (Unknown)
- - PGN 126208 (NMEA Command/Request/Acknowledge)
  - Or additional fields in PGN 127237 that change based on mode
 
-- Alerting is autopilot has a issue and disengages PGN 127237
+- Alerting is autopilot has a issue and disengages PGN 127237 --> Alert notofocation
  - PGN 65360 (Proprietary Furuno)
  - PGN 126208 (NMEA Command/Request/Acknowledge)
  - Or additional fields in PGN 127237 that change based on mode
 
-### Questions when comparing Signal K to Timezero Pro:
-- Why does TZ in GOTO sent also 129285? TZ does not. Is it to give the display a destination name?
-
-## Startup
-- Check if all nessecary paths are available (rudder angle, etc)
+## Questions when comparing Signal K to Timezero Pro:
+- Why does TZ in GOTO sent also 129285? TZ does not. Is it to give the display a destination name? Will it work without?
 
 ## Future wish
 - Figure out how to remotely enable the Autopilot
