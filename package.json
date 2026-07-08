@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "description": "Signal K Autopilot Provider plugin for Furuno NavPilot (700/711C) via NMEA2000",
   "main": "index.js",
+  "files": [
+    "index.js",
+    "lib/",
+    "doc/",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "test": "node --test"
   },
