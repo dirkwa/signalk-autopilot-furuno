@@ -74,6 +74,30 @@ module.exports = function(app) {
         title: 'Detection Timeout (seconds)',
         description: 'How long to wait for autopilot detection before showing warning',
         default: 10
+      },
+      connectionTimeout: {
+        type: 'number',
+        title: 'Connection Timeout (seconds)',
+        description:
+          'If no autopilot data (PGN 127237) is received for this long, raise a ' +
+          '"NavPilot connection lost" notification.',
+        default: 5
+      },
+      experimentalCommands: {
+        type: 'boolean',
+        title: 'Enable experimental remote commands (UNVERIFIED)',
+        description:
+          'Off by default. This NavPilot has no verified NMEA 2000 remote-control path; ' +
+          'commands use Furuno proprietary PGNs (126720 mode / 130827 course) that ' +
+          'are unproven and may do nothing. Leave disabled for a feedback-only provider.',
+        default: false
+      },
+      deviceAddress: {
+        type: 'number',
+        title: 'Autopilot N2K source address (optional)',
+        description:
+          'Source address of the NavPilot on the bus, used as the command destination when ' +
+          'experimental commands are enabled. Leave blank to broadcast.'
       }
     }
   }

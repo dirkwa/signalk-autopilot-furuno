@@ -1,10 +1,10 @@
 {
   "name": "signalk-autopilot-furuno",
-  "version": "0.0.1",
-  "description": "Signal K Autopilot Provider plugin for Furuno NavPilot-711C via NMEA2000",
+  "version": "0.1.0",
+  "description": "Signal K Autopilot Provider plugin for Furuno NavPilot (700/711C) via NMEA2000",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "node --test"
   },
   "keywords": [
     "signalk-node-server-plugin",
@@ -25,9 +25,9 @@
   },
   "homepage": "https://github.com/dirkwa/signalk-autopilot-furuno#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0"
+    "@types/node": "^22.0.0"
   }
 }
