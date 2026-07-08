@@ -37,3 +37,6 @@ coverage/
 
 # development builds
 *.tgz
+
+# Local research / analysis notes — not for publication
+research/

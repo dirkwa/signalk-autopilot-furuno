@@ -1,37 +1,27 @@
 # signalk-autopilot-furuno
 
-Signal K Autopilot Provider plugin for Furuno NavPilot-711C via NMEA2000.
+Signal K Autopilot Provider plugin for the Furuno NavPilot (700/711C) via NMEA 2000.
 
-  PURELY EXPERIMENTAL, DO NOT USE!
-  see doc/install_beta.md
+Status: **feedback works; remote command is unverified.** This plugin reports the
+NavPilot's live state to Signal K and can act as a feedback provider. Remote command
+is disabled by default — see "Remote command" below.
 
-# Requirements:
+## What works
 
-1. Use https://github.com/dirkwa/visual-analyzer to see transmitted PGNs
-2. Use https://github.com/dirkwa/signalk-to-nmea2000 to get PGN 129284 and fix for PGN 129285
+- **Mode feedback** from PGN 127237 `Steering Mode`:
+  `Main Steering` → standby, `Heading Control Standalone` → auto, `Track Control` → nav.
+- **Rudder / heading feedback** from PGN 127245 / 127237.
+- **Route following (nav mode):** the NavPilot follows an active route on its own from the
+  standard route PGNs (129285 / 129284 / 129283). To command a GOTO from Signal K, emit those
+  as an active route source — use https://github.com/dirkwa/signalk-to-nmea2000.
 
+## Remote command (experimental, off by default)
 
-# TODO:
-
-## General
-- Improve PGN 127237 handling, to give feedback on data path "steering.autopilot.*" 
- - PGN 126208 (NMEA Command/Request/Acknowledge)
- - PGN 126464 (PGN List TX/RX group function)
- - PGN 130827 (Unknown)
- - Or additional fields in PGN 127237 that change based on mode
-
-- Alerting is autopilot has a issue and disengages PGN 127237 --> Alert notofocation
- - PGN 65360 (Proprietary Furuno)
- - PGN 126208 (NMEA Command/Request/Acknowledge)
- - Or additional fields in PGN 127237 that change based on mode
-
-## Questions when comparing Signal K to Timezero Pro:
-- Why does TZ in GOTO sent also 129285? TZ does not. Is it to give the display a destination name? Will it work without?
-
-## Future wish
-- Figure out how to remotely enable the Autopilot
-- Get feedback to SK on status changes at the Furuno display (f.e. Auto -> Standby) to prevent logic loops
-- Migrate to SK autopilot project
+Remote command of this NavPilot over NMEA 2000 is **unverified**. The plugin can emit
+Furuno-proprietary command PGNs (126720 for mode, 130827 for course), but they are unproven
+and may do nothing, so they are gated behind the `experimentalCommands` setting and disabled by
+default. The Simrad PGN 130850 an earlier version used is inert, and the standard PGN 126208 is
+ignored by the pilot. "Adjust ±N°" is sent as an absolute course (there is no relative-course PGN).
 
 
 # Known Limitations
