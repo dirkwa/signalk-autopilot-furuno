@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0]
+
+### Changed
+
+- **BREAKING (licensing):** signalk-autopilot-furuno is no longer MIT licensed.
+  Starting with this release it is source-available under the terms in
+  [LICENSE.md](LICENSE.md).
+
+  For users, nothing changes: running the plugin on your own boat or fleet —
+  private or commercial — and modifying it for your own use are both explicitly
+  permitted, at no cost. The source remains public.
+
+  What is no longer permitted is redistribution: publishing this software, or a
+  modified version of it, to npm or any other channel. Verbatim copies of
+  official releases may still be mirrored and cached.
+
+  Version 0.1.0 and earlier remain under the MIT license and are unaffected.
+
+### Fixed
+
+- Corrected the copyright holder in the MIT license text, which read "SignalK
+  Community" through v0.1.0. That was an unedited template default rather than
+  an assignment — every commit in this repository is the work of Dirk Wahrheit,
+  the sole copyright holder throughout.
+
 ## [Unreleased]
 
 ### Added

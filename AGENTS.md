@@ -49,6 +49,35 @@ Tag-triggered via [.github/workflows/publish.yml](.github/workflows/publish.yml)
 - **Do NOT add `npm install -g npm@latest`** to the workflow — the self-update leaves a broken tree and `--provenance` fails with `Cannot find module 'sigstore'`. Use Node 22's bundled npm.
 - The published tarball is controlled by the `files` whitelist in `package.json` (ships `index.js`, `lib/`, `doc/`, `CHANGELOG.md` + the always-included `README`/`LICENSE`). Keep dev/test files out of it.
 
+## Licensing
+
+From **0.2.0** this plugin is source-available, not open source: use and
+modification are free, redistribution is not. `LICENSE.md` is authoritative.
+
+- **0.1.0 and earlier were MIT and stay that way, permanently.** Never rewrite
+  history, retag old releases, or edit the license on an existing tag.
+- `LICENSE-MIT-through-v0.1.0.txt` keeps that history discoverable in the
+  tarball. Do not delete it.
+- The MIT copyright line read "SignalK Community" through v0.1.0 — an unedited
+  GitHub template default, not an assignment. Every commit here is Dirk
+  Wahrheit's; he was always the sole holder. The renamed file records both the
+  correction and the reason. **Do not "restore" the old line** thinking it was
+  deliberate.
+- **Never propose returning to a permissive license** — that is the copyright
+  holder's decision alone.
+- `package.json` uses `"license": "SEE LICENSE IN LICENSE.md"`. This is not an
+  SPDX-listed license; inventing an identifier breaks tooling validation.
+- `CONTRIBUTING.md` carries an inbound contribution grant. Without it, merged
+  contributions fragment ownership and make this kind of decision impossible to
+  take again.
+- The license text derives from a plain-language template whose authors permit
+  adaptation only if all mention of their project is removed. It has been. Do
+  not add attribution to them back in.
+- **Runtime dependencies gate this.** A copyleft or share-alike runtime
+  dependency would override the arrangement. This plugin currently has **zero**
+  runtime dependencies, so the question is trivially settled — re-check if that
+  ever changes.
+
 ## Conventions
 
 - **Conventional commit** subjects and PR titles (`feat:`, `fix:`, `ci:`, `build:`, `chore:`).

@@ -1,13 +1,15 @@
 {
   "name": "signalk-autopilot-furuno",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Signal K Autopilot Provider plugin for Furuno NavPilot (700/711C) via NMEA2000",
   "main": "index.js",
   "files": [
     "index.js",
     "lib/",
     "doc/",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE.md",
+    "LICENSE-MIT-through-v0.1.0.txt"
   ],
   "scripts": {
     "test": "node --test"
@@ -21,7 +23,7 @@
     "navpilot-711c"
   ],
   "author": "Dirk Wahrheit",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dirkwa/signalk-autopilot-furuno.git"
