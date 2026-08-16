@@ -29,3 +29,19 @@ ignored by the pilot. "Adjust ±N°" is sent as an absolute course (there is no 
 ## WIND-Mode
 - Furuno FAP-7002 does not support wind mode remote
 https://www.furuno.it/docs/OPERATOR_MANUAL/OME45120D_TZT9F_12F_16F_19F.pdf
+
+
+# License
+
+signalk-autopilot-furuno 0.2.0 and later is **source available, not open source**.
+See [LICENSE.md](LICENSE.md).
+
+**You may**, free of charge: run it on your own boat or fleet, private or
+commercial; use it for internal company operations; modify it for your own use;
+use it in education and research; and provide professional services around it.
+
+**You may not**: redistribute it, or publish a modified version of it to npm or
+anywhere else. Verbatim copies of official releases may be mirrored and cached.
+
+Version 0.1.0 and earlier remain available under the MIT license — see
+[LICENSE-MIT-through-v0.1.0.txt](LICENSE-MIT-through-v0.1.0.txt).

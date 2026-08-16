@@ -1,6 +1,18 @@
+This MIT license applied to signalk-autopilot-furuno version 0.1.0 and all
+earlier releases. Those versions remain available under MIT in perpetuity.
+
+Version 0.2.0 and later are licensed under the terms in LICENSE.md.
+
+The copyright line below read "SignalK Community" through v0.1.0. That was an
+unedited template default, not an assignment: every commit in this repository
+is the work of Dirk Wahrheit, who is and always was the sole copyright holder.
+It is corrected here so the record is accurate.
+
+---
+
 MIT License
 
-Copyright (c) 2025 SignalK Community
+Copyright (c) 2025 Dirk Wahrheit
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
