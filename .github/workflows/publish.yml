@@ -24,6 +24,22 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
+      # actions/setup-node ships Node 22 with npm 10.9.x, which has no OIDC
+      # support: `npm publish` silently falls through to legacy auth even when
+      # GitHub issues a valid OIDC token, and the registry rejects the
+      # unauthenticated PUT as a misleading 404. The handshake landed in npm
+      # 11.5.
+      #
+      # Pin the MAJOR. An earlier version of this workflow used `npm@latest`,
+      # which now resolves to npm 12 and breaks `--provenance` with
+      # "Cannot find module 'sigstore'". Removing the upgrade entirely (the
+      # first attempt at fixing that) is what reintroduced npm 10.9.x here.
+      # `npm@^11` is the version window where both provenance and OIDC work.
+      - name: Upgrade npm to ≥ 11.5 for OIDC trusted publishing
+        run: npm install -g npm@^11
+
+      - run: npm --version
+
       - run: npm install
 
       - run: npm test
