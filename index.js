@@ -83,6 +83,15 @@ module.exports = function(app) {
           '"NavPilot connection lost" notification.',
         default: 5
       },
+      advertiseNavSource: {
+        type: 'boolean',
+        title: 'Advertise Signal K as NavPilot NAV data source',
+        description:
+          'Broadcasts a PGN 126464 transmit list with 129283/129284/129285 so the NavPilot ' +
+          'offers Signal K\'s NMEA 2000 interface under Menu > Other Menu > NAV Option > Source. ' +
+          'Needed for NAV mode to follow a destination or route set in Signal K.',
+        default: true
+      },
       experimentalCommands: {
         type: 'boolean',
         title: 'Enable experimental remote commands (UNVERIFIED)',
