@@ -57,6 +57,19 @@ test('re-advertises periodically', async () => {
   assert.ok(pgnLists(app).length >= 3, 'initial + periodic advertisements')
 })
 
+test('a repeated start leaves no timer or listener behind after stop', async () => {
+  const app = mockApp()
+  const adv = new NavSourceAdvertiser(app, { intervalMs: 10 })
+  adv.start()
+  adv.start()
+  adv.stop()
+  const afterStop = pgnLists(app).length
+  app.emit('nmea2000OutAvailable')
+  await new Promise((resolve) => setTimeout(resolve, 35))
+  assert.strictEqual(pgnLists(app).length, afterStop, 'nothing advertised after stop')
+  assert.strictEqual(app.listenerCount('nmea2000OutAvailable'), 0)
+})
+
 test('provider advertises by default and stops with the plugin', () => {
   const app = mockApp()
   const p = new AutopilotProvider(app, { deviceId: '711c' })
