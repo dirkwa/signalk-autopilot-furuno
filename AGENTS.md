@@ -43,10 +43,15 @@ Remote command of this NavPilot over NMEA 2000 is **unverified**. Command method
 
 ## Publish
 
-Tag-triggered via [.github/workflows/publish.yml](.github/workflows/publish.yml) using **npm Trusted Publishing (OIDC, keyless)** with provenance:
+Releases are cut by [release-please](.github/workflows/release-please.yml) and published by [.github/workflows/publish.yml](.github/workflows/publish.yml) using **npm Trusted Publishing (OIDC, keyless)** with provenance:
 
-- Bump `version` in `package.json`, push a `vX.Y.Z` tag → the workflow runs `npm test` and `npm publish --provenance --access public`. `-beta.*` / `-rc.*` tags publish under the `beta` dist-tag.
-- **Do NOT add `npm install -g npm@latest`** to the workflow — the self-update leaves a broken tree and `--provenance` fails with `Cannot find module 'sigstore'`. Use Node 22's bundled npm.
+- Don't bump `version` or tag by hand. A merge to `main` carrying a releasable commit makes release-please open or update a `chore: release X.Y.Z` PR. The version follows the commit types: `feat` → minor, `fix`/`perf` → patch, `!` or a `BREAKING CHANGE:` footer → major; a `Release-As: X.Y.Z` footer pins it.
+- The `gate` job lets only releasable pushes reach release-please: `feat`, `fix`, `perf`, `revert`, any `type!:`, a `BREAKING CHANGE:` or `Release-As:` footer, `build(deps):`, or the release PR's own merge. A `docs:`/`ci:`/`chore:` merge does not propose a release. The gate's last alternative must match `pull-request-title-pattern` in [release-please-config.json](release-please-config.json) — change one, change both, or the release PR's merge stops creating tags. Run the workflow by hand (workflow_dispatch) to bypass the gate.
+- Merging the release PR bumps `package.json` and [.release-please-manifest.json](.release-please-manifest.json), creates the `vX.Y.Z` tag and the GitHub release, then dispatches `publish.yml` on the tag (a tag created with `GITHUB_TOKEN` starts no workflow on its own). `publish.yml` must stay the publishing workflow: npm trusted publishing is bound to that file name.
+- Release notes are GitHub's generated notes (`changelog-type: github`), grouped by PR label via [.github/release.yml](.github/release.yml). No CHANGELOG entries (`skip-changelog`); `CHANGELOG.md` covers 0.2.0 and earlier.
+- Pre-releases: push a `vX.Y.Z-beta.N` / `-rc.N` tag by hand → published under the `beta` dist-tag.
+- Repo setting **Allow GitHub Actions to create and approve pull requests** must stay on, or release-please cannot open its PR.
+- `publish.yml` installs `npm@^11`: Node 22's bundled npm 10.9 has no OIDC support (the publish falls back to legacy auth and fails with a misleading 404). **Do NOT use `npm@latest`** — npm 12 breaks `--provenance` with `Cannot find module 'sigstore'`.
 - The published tarball is controlled by the `files` whitelist in `package.json` (ships `index.js`, `lib/`, `doc/`, `CHANGELOG.md` + the always-included `README`/`LICENSE`). Keep dev/test files out of it.
 
 ## Licensing

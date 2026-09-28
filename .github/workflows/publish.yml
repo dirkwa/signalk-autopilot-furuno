@@ -1,9 +1,14 @@
 name: Publish Package
 
+# Publishes the tag it runs on to npm. Release tags come from release-please:
+# merging its release PR creates the tag and the GitHub release, then
+# dispatches this workflow on the tag. Pre-release tags (-beta.N / -rc.N) are
+# pushed by hand and start it through the tag trigger.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -11,6 +16,8 @@ permissions:
 
 jobs:
   publish:
+    # A dispatch can name any ref; only a release tag is published.
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
 
     steps:
