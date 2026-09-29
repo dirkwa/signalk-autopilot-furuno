@@ -64,7 +64,7 @@ Releases are cut by [release-please](.github/workflows/release-please.yml) and p
 - Pre-releases: push a `vX.Y.Z-beta.N` / `-rc.N` tag by hand → published under the `beta` dist-tag.
 - Repo setting **Allow GitHub Actions to create and approve pull requests** must stay on, or release-please cannot open its PR.
 - `publish.yml` installs `npm@^11`: Node 22's bundled npm 10.9 has no OIDC support (the publish falls back to legacy auth and fails with a misleading 404). **Do NOT use `npm@latest`** — npm 12 breaks `--provenance` with `Cannot find module 'sigstore'`.
-- The published tarball is controlled by the `files` whitelist in `package.json` (ships `index.js`, `lib/`, `doc/`, `assets/`, `LICENSE.md`, `LICENSE-MIT-through-v0.1.0.txt` + the always-included `README`). `assets/icon.svg` is the App Store icon (`signalk.appIcon`). Keep dev/test files out of it.
+- The published tarball is controlled by the `files` whitelist in `package.json` (ships `index.js`, `lib/`, `doc/`, `assets/`, `LICENSE.md`, `LICENSE-MIT-through-v0.1.0.txt` + the always-included `README`). `assets/icon.svg` is the App Store icon (`signalk.appIcon`) and `doc/screenshots/` holds its screenshots (`signalk.screenshots`). Keep dev/test files out of it.
 
 ## Licensing
 
