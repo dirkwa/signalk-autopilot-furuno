@@ -24,7 +24,10 @@
   ],
   "signalk": {
     "displayName": "Furuno NavPilot",
-    "appIcon": "assets/icon.svg"
+    "appIcon": "assets/icon.svg",
+    "screenshots": [
+      "./doc/screenshots/plugin-config.png"
+    ]
   },
   "author": "Dirk Wahrheit",
   "license": "SEE LICENSE IN LICENSE.md",
