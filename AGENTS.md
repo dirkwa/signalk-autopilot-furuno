@@ -15,8 +15,10 @@ Discovered by the appstore via the `signalk-node-server-plugin` / `signalk-categ
 - [lib/N2KCommands.js](lib/N2KCommands.js) — builds/sends the (experimental) command PGNs. Emits on `nmea2000JsonOut`.
 - [lib/SignalKPaths.js](lib/SignalKPaths.js) — subscribes to `navigation.heading*`, `steering.rudderAngle`, and XTE via `streambundle.getSelfBus`, for autopilot-detection and internal state.
 - [lib/NavSourceAdvertiser.js](lib/NavSourceAdvertiser.js) — broadcasts a PGN 126464 Transmit PGN list containing 129283/129284/129285 on `nmea2000JsonOut` (on start, on `nmea2000OutAvailable`, and every 60 s), so the NavPilot offers Signal K's N2K interface as NAV data source. Gated by the `advertiseNavSource` setting (default on).
+- [lib/RouteAdvancer.js](lib/RouteAdvancer.js) — while a Signal K route is active (any pilot mode), activates the next route point (`app.activateRoute`, absolute `pointIndex`) once the vessel enters the course's arrival circle (having been outside it for that point) or is past the waypoint's perpendicular, then starts the new leg at the vessel (see below). Computes both from positions itself; checked at most once per second on `navigation.position`. Gated by the `autoAdvanceRoute` setting (default on).
 - [test/feedback.test.js](test/feedback.test.js) — `node:test` smoke suite for the feedback mapping, alarms, watchdog, and command gating.
 - [test/nav-source.test.js](test/nav-source.test.js) — `node:test` suite for the Transmit PGN list advertisement.
+- [test/route-advance.test.js](test/route-advance.test.js) — `node:test` suite for route auto-advance.
 
 ## How feedback works (the part that works)
 
@@ -30,6 +32,10 @@ Everything hangs off **PGN 127237 (Heading/Track Control)** delivered on the `N2
 ## NAV mode from Signal K (NAV data source)
 
 The NavPilot steers NAV mode from the navigation PGNs 129283/129284/129285 of the device(s) selected under **Menu → Other Menu → NAV Option → Source** — and only offers a device there if its PGN 126464 Transmit PGN list includes those PGNs. Navigation PGNs from any other source address are ignored, and the pilot raises *No nav data* shortly after NAV is engaged. The gateway Signal K transmits through does not list them, so `NavSourceAdvertiser` broadcasts a Transmit PGN list on Signal K's output (same source address). The navigation PGNs themselves come from signalk-to-nmea2000, not from this plugin. Don't remove or narrow the advertisement without re-testing NAV on the pilot.
+
+The pilot does not sequence a route itself — it steers to whatever destination 129284 carries, and after passing it turns back towards it. Signal K's Course API does not advance a route on arrival either (that is left to clients such as Freeboard-SK, whose option runs in the browser and is off by default), so `RouteAdvancer` switches to the next route point as soon as the vessel enters the arrival circle, or passes the waypoint's perpendicular. Entering the circle only counts once the vessel has been outside it for that point: where the circles of close waypoints overlap, the next one is advanced from on passing it rather than at once, so no waypoint is skipped. It advances in any pilot mode, so with `autoAdvanceRoute` on (the default) the destination is not left behind the boat when NAV is engaged later; with it off, advancing is up to the user or another client.
+
+After switching, the leg starts at the vessel rather than at the reached waypoint (`activateRoute` always starts it at the previous route point, which leaves the boat off the new track line and makes the pilot correct hard). The Course API does this for `PUT …/navigation/course/restart`, but offers it to plugins only as `app.restartCourse()` where the server has it; on older servers `startLegAtVessel` sets `app.courseApi.courseInfo.previousPoint` and calls `emitCourseInfo(false, 'previousPoint')` — server internals, feature-checked, with the reached waypoint as the leg start if neither exists. Drop the internals path once `restartCourse` is in the servers this plugin supports.
 
 ## Signal K Autopilot API gotchas (get these wrong and it silently breaks)
 

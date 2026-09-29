@@ -92,6 +92,16 @@ module.exports = function(app) {
           'Needed for NAV mode to follow a destination or route set in Signal K.',
         default: true
       },
+      autoAdvanceRoute: {
+        type: 'boolean',
+        title: 'Advance to the next route point on arrival',
+        description:
+          'While a Signal K route is active, switch to the next route point when the boat enters ' +
+          'the arrival circle, or passes the waypoint outside it, and start the new leg at the ' +
+          'boat, so in NAV mode the pilot turns towards the next waypoint instead of steering back ' +
+          'to the passed one.',
+        default: true
+      },
       experimentalCommands: {
         type: 'boolean',
         title: 'Enable experimental remote commands (UNVERIFIED)',

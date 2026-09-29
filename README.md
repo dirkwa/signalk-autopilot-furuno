@@ -38,6 +38,21 @@ source. Signal K can be that source:
 Without step 3 the NavPilot ignores Signal K's navigation data and raises *No nav data* shortly
 after NAV is engaged.
 
+### Routes
+
+The NavPilot does not step through a route by itself: the navigator has to switch the destination
+to the next waypoint, otherwise the pilot keeps steering to a waypoint it has already passed and
+turns back towards it. With **Advance to the next route point on arrival** enabled (default), the
+plugin does this whenever a Signal K route is active: once the boat enters the arrival circle set in
+Signal K, or passes a waypoint outside it, the next route point becomes the destination. The new leg
+starts at the boat's position, so in NAV the pilot turns towards the next waypoint rather than first
+correcting onto the line between the two waypoints.
+
+Set the arrival circle in Freeboard-SK (Settings → Course), e.g. 50 m for a close, gentle turn. The
+same circle drives the NavPilot's *arrival* flag, so it switches together with the plugin. Waypoints
+closer together than the circle are each passed rather than skipped, and the route ends at its last
+waypoint. Freeboard-SK's own *Auto-advance to next point on arrival* is not needed.
+
 ## Remote command (experimental, off by default)
 
 Remote command of this NavPilot over NMEA 2000 is **unverified**. The plugin can emit
