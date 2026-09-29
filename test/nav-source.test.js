@@ -48,13 +48,24 @@ test('re-advertises when the NMEA 2000 output becomes available', () => {
   assert.strictEqual(pgnLists(app).length, 2, 'no advertisement after stop')
 })
 
+// Resolves once `condition` holds; timer-driven results arrive late on a
+// loaded CI runner, so this waits up to `timeoutMs` rather than a fixed delay.
+async function waitFor(condition, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs
+  while (!condition()) {
+    if (Date.now() > deadline) return false
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+  return true
+}
+
 test('re-advertises periodically', async () => {
   const app = mockApp()
   const adv = new NavSourceAdvertiser(app, { intervalMs: 10 })
   adv.start()
-  await new Promise((resolve) => setTimeout(resolve, 35))
+  const advertised = await waitFor(() => pgnLists(app).length >= 3)
   adv.stop()
-  assert.ok(pgnLists(app).length >= 3, 'initial + periodic advertisements')
+  assert.ok(advertised, 'initial + periodic advertisements')
 })
 
 test('a repeated start leaves no timer or listener behind after stop', async () => {
