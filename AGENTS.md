@@ -51,6 +51,7 @@ Remote command of this NavPilot over NMEA 2000 is **unverified**. Command method
 ## Build / test
 
 - No build step. `npm test` runs the `node:test` suite. **Requires Node ≥ 22** (`engines.node`).
+- CI is SignalK's reusable plugin CI ([.github/workflows/plugin-ci.yml](.github/workflows/plugin-ci.yml)): `npm test` on Linux, macOS and Windows (Node 22 and 24) and armv7, plus an install into a running Signal K server. The plugin registry scores the plugin on its runs on `main`. Its package validation fails every job on a hard-coded home-directory path (`/home/<user>/…`) in any `.js`/`.ts`/`.sh` file, test fixtures included. Without a `package-lock.json` it installs with `npm install`.
 - Local install for on-boat testing: `npm install /path/to/signalk-autopilot-furuno` into the Signal K data dir, then enable the plugin.
 
 ## Publish
