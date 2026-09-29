@@ -7,6 +7,7 @@
     "index.js",
     "lib/",
     "doc/",
+    "assets/",
     "LICENSE.md",
     "LICENSE-MIT-through-v0.1.0.txt"
   ],
@@ -21,6 +22,10 @@
     "navpilot",
     "navpilot-711c"
   ],
+  "signalk": {
+    "displayName": "Furuno NavPilot",
+    "appIcon": "assets/icon.svg"
+  },
   "author": "Dirk Wahrheit",
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
