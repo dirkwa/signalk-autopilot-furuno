@@ -55,6 +55,13 @@ async function approach(adv) {
   return adv.check(INSIDE)
 }
 
+// Goes by P1 ~333 m to the east: outside the circle, then past the perpendicular.
+const PASSING_WIDE = { latitude: 0.0101, longitude: 0.003 }
+async function passWide(adv) {
+  assert.strictEqual(await adv.check(OUTSIDE), false)
+  return adv.check(PASSING_WIDE)
+}
+
 test('advances to the next point inside the arrival circle', async () => {
   const app = mockApp(routeCourse())
   const adv = new RouteAdvancer(app, { minIntervalMs: 0 })
@@ -83,7 +90,7 @@ test('uses only the perpendicular when there is no arrival circle', async () => 
   assert.strictEqual(await adv.check({ latitude: 0.01001, longitude: 0 }), true)
 })
 
-test('starts the new leg at the vessel through the Course API', async () => {
+test('starts the new leg at the vessel when passing the waypoint off the track', async () => {
   const app = mockApp(routeCourse())
   const emitted = []
   app.courseApi = {
@@ -91,12 +98,30 @@ test('starts the new leg at the vessel through the Course API', async () => {
     emitCourseInfo: (noSave, ...paths) => emitted.push([noSave, ...paths])
   }
   const adv = new RouteAdvancer(app, { minIntervalMs: 0 })
-  assert.strictEqual(await approach(adv), true)
+  assert.strictEqual(await passWide(adv), true)
   assert.deepStrictEqual(app.courseApi.courseInfo.previousPoint, {
-    position: { latitude: INSIDE.latitude, longitude: INSIDE.longitude },
+    position: PASSING_WIDE,
     type: 'VesselPosition'
   })
   assert.deepStrictEqual(emitted, [[false, 'previousPoint']])
+})
+
+test('keeps the leg from the reached waypoint when switching in the zone', async () => {
+  const app = mockApp(routeCourse())
+  const emitted = []
+  app.courseApi = {
+    courseInfo: { nextPoint: { position: P1 }, previousPoint: { position: P0 } },
+    emitCourseInfo: (noSave, ...paths) => emitted.push([noSave, ...paths])
+  }
+  // activateRoute() makes the reached waypoint the start of the next leg
+  app.activateRoute = async (dest) => {
+    app.activations.push(dest)
+    app.courseApi.courseInfo.previousPoint = { position: P1 }
+  }
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0 })
+  assert.strictEqual(await approach(adv), true)
+  assert.deepStrictEqual(app.courseApi.courseInfo.previousPoint, { position: P1 })
+  assert.deepStrictEqual(emitted, [], 'no restart at the vessel')
 })
 
 test('starts the new leg at the server\'s current vessel position', async () => {
@@ -108,7 +133,7 @@ test('starts the new leg at the server\'s current vessel position', async () => 
     emitCourseInfo: () => {}
   }
   const adv = new RouteAdvancer(app, { minIntervalMs: 0 })
-  assert.strictEqual(await approach(adv), true)
+  assert.strictEqual(await passWide(adv), true)
   assert.deepStrictEqual(app.courseApi.courseInfo.previousPoint.position, moved)
 })
 
@@ -118,7 +143,7 @@ test('prefers the server restartCourse for the new leg when it is offered', asyn
   app.restartCourse = async () => { restarts++ }
   app.courseApi = { courseInfo: { nextPoint: {} }, emitCourseInfo: () => { throw new Error('not used') } }
   const adv = new RouteAdvancer(app, { minIntervalMs: 0 })
-  assert.strictEqual(await approach(adv), true)
+  assert.strictEqual(await passWide(adv), true)
   assert.strictEqual(restarts, 1)
 })
 
@@ -245,6 +270,137 @@ test('does not activate after stop or when the course changed meanwhile', async 
   cleared.getCourse = async () => (++calls === 1 ? cleared.course : routeCourse({ activeRoute: null }))
   assert.strictEqual(await adv2.check(INSIDE), false)
   assert.strictEqual(stopped.activations.length + cleared.activations.length, 0)
+})
+
+// Wheel-over: 2.8 m/s at 1.5 deg/s is a turn radius of ~107 m.
+const SOG = 2.8
+const M_PER_DEG = 111195.08
+
+function withRoute(app, points, { reverse = false, sog = SOG } = {}) {
+  const coordinates = points.map((p) => [p.longitude, p.latitude])
+  if (reverse) coordinates.reverse()
+  app.fetches = 0
+  app.resourcesApi = {
+    getResource: async (type, id) => {
+      app.fetches++
+      assert.strictEqual(type, 'routes')
+      assert.strictEqual(id, 'r1')
+      return { feature: { geometry: { coordinates } } }
+    }
+  }
+  app.getSelfPath = (path) =>
+    path === 'navigation.speedOverGround' && sog !== null ? { value: sog } : undefined
+  return app
+}
+
+const before = (m) => ({ latitude: P1.latitude - m / M_PER_DEG, longitude: 0 })
+const EAST_OF_P1 = { latitude: 0.01, longitude: 0.01 } // 90 deg turn, ~1.1 km leg
+
+test('switches at the wheel-over point before a sharp turn', async () => {
+  const app = withRoute(mockApp(routeCourse({ arrivalCircle: 20 })), [P0, P1, EAST_OF_P1])
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0, turnRate: 1.5 })
+  assert.strictEqual(await adv.check(before(150)), false)
+  assert.strictEqual(await adv.check(before(115)), false)
+  assert.strictEqual(await adv.check(before(100)), true, 'd = R tan 45 = ~107 m')
+  assert.strictEqual(app.activations[0].pointIndex, 2)
+  assert.strictEqual(app.fetches, 1, 'route read once per leg')
+})
+
+test('picks up an edit to the route during a leg', async () => {
+  const straightOn = { latitude: 0.02, longitude: 0 }
+  const app = withRoute(mockApp(routeCourse({ arrivalCircle: 20 })), [P0, P1, straightOn])
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0, turnRate: 1.5, routeRefreshMs: 0 })
+  assert.strictEqual(await adv.check(before(150)), false)
+  assert.strictEqual(await adv.check(before(100)), false, 'no turn ahead: circle only')
+
+  // The next leg is redrawn as a 90 degree turn while the boat is still on this one.
+  withRoute(app, [P0, P1, EAST_OF_P1])
+  assert.strictEqual(await adv.check(before(95)), true, 'wheel-over for the new geometry')
+})
+
+test('switches at the arrival circle before a gentle turn', async () => {
+  const twentyDegrees = {
+    latitude: P1.latitude + 939.7 / M_PER_DEG,
+    longitude: 342.0 / M_PER_DEG
+  }
+  const app = withRoute(mockApp(routeCourse({ arrivalCircle: 50 })), [P0, P1, twentyDegrees])
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0, turnRate: 1.5 })
+  assert.strictEqual(await adv.check(before(150)), false)
+  assert.strictEqual(await adv.check(before(60)), false, 'd = R tan 10 = ~19 m, inside the circle')
+  assert.strictEqual(await adv.check(before(45)), true)
+})
+
+test('caps the wheel-over distance at half of a short leg', async () => {
+  const shortLegEast = { latitude: 0.01, longitude: 100 / M_PER_DEG }
+  const app = withRoute(mockApp(routeCourse({ arrivalCircle: 0 })), [P0, P1, shortLegEast])
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0, turnRate: 1.5 })
+  assert.strictEqual(await adv.check(before(150)), false)
+  assert.strictEqual(await adv.check(before(70)), false)
+  assert.strictEqual(await adv.check(before(45)), true, 'capped at 50 m')
+})
+
+test('switches at the arrival circle without speed over ground', async () => {
+  const app = withRoute(mockApp(routeCourse({ arrivalCircle: 20 })), [P0, P1, EAST_OF_P1], { sog: null })
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0, turnRate: 1.5 })
+  assert.strictEqual(await adv.check(before(150)), false)
+  assert.strictEqual(await adv.check(before(100)), false)
+  assert.strictEqual(await adv.check(before(15)), true)
+})
+
+test('treats a waypoint passed between two position samples as passed, not turned', async () => {
+  const app = withRoute(mockApp(routeCourse({ arrivalCircle: 20 })), [P0, P1, EAST_OF_P1])
+  const emitted = []
+  app.courseApi = {
+    courseInfo: { nextPoint: { position: P1 }, previousPoint: { position: P0 } },
+    emitCourseInfo: (noSave, ...paths) => emitted.push([noSave, ...paths])
+  }
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0, turnRate: 1.5 })
+  const offset = 50 / M_PER_DEG
+  assert.strictEqual(await adv.check({ latitude: P1.latitude - 150 / M_PER_DEG, longitude: offset }), false)
+  // The next sample, after a gap, is already 50 m past the waypoint and 50 m off the track.
+  const past = { latitude: P1.latitude + 50 / M_PER_DEG, longitude: offset }
+  assert.strictEqual(await adv.check(past), true)
+  assert.deepStrictEqual(emitted, [[false, 'previousPoint']], 'new leg starts at the boat')
+  assert.deepStrictEqual(app.courseApi.courseInfo.previousPoint.position, past)
+})
+
+test('does not anticipate a turn when well off the track', async () => {
+  const app = withRoute(mockApp(routeCourse({ arrivalCircle: 20 })), [P0, P1, EAST_OF_P1])
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0, turnRate: 1.5 })
+  const west = (m) => ({ latitude: P1.latitude - m / M_PER_DEG, longitude: -150 / M_PER_DEG })
+  assert.strictEqual(await adv.check(west(150)), false)
+  assert.strictEqual(await adv.check(west(100)), false, '150 m off the track')
+  assert.strictEqual(await adv.check(west(-5)), true, 'past the perpendicular')
+})
+
+test('finds the next leg of a reversed route in travel order', async () => {
+  const app = withRoute(
+    mockApp(routeCourse({
+      arrivalCircle: 20,
+      activeRoute: { href: '/resources/routes/r1', pointIndex: 1, pointTotal: 3, reverse: true }
+    })),
+    [P0, P1, EAST_OF_P1],
+    { reverse: true }
+  )
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0, turnRate: 1.5 })
+  assert.strictEqual(await adv.check(before(150)), false)
+  assert.strictEqual(await adv.check(before(100)), true)
+})
+
+test('turn rate 0 switches at the arrival circle only', async () => {
+  const app = withRoute(mockApp(routeCourse({ arrivalCircle: 20 })), [P0, P1, EAST_OF_P1])
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0, turnRate: 0 })
+  assert.strictEqual(await adv.check(before(150)), false)
+  assert.strictEqual(await adv.check(before(100)), false)
+  assert.strictEqual(await adv.check(before(15)), true)
+})
+
+test('defaults to the measured NavPilot turn rate of 2.2 deg/s', async () => {
+  const app = withRoute(mockApp(routeCourse({ arrivalCircle: 20 })), [P0, P1, EAST_OF_P1])
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0 })
+  assert.strictEqual(await adv.check(before(150)), false)
+  assert.strictEqual(await adv.check(before(80)), false)
+  assert.strictEqual(await adv.check(before(70)), true, 'd = 2.8 / 2.2 deg/s * tan 45 = ~73 m')
 })
 
 test('provider advances on position updates in any pilot mode and stops with the plugin', async () => {

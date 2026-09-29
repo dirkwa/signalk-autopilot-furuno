@@ -43,15 +43,50 @@ after NAV is engaged.
 The NavPilot does not step through a route by itself: the navigator has to switch the destination
 to the next waypoint, otherwise the pilot keeps steering to a waypoint it has already passed and
 turns back towards it. With **Advance to the next route point on arrival** enabled (default), the
-plugin does this whenever a Signal K route is active: once the boat enters the arrival circle set in
-Signal K, or passes a waypoint outside it, the next route point becomes the destination. The new leg
-starts at the boat's position, so in NAV the pilot turns towards the next waypoint rather than first
-correcting onto the line between the two waypoints.
+plugin does this whenever a Signal K route is active, in any pilot mode, so the destination is never
+behind the boat when NAV is engaged.
 
-Set the arrival circle in Freeboard-SK (Settings → Course), e.g. 50 m for a close, gentle turn. The
-same circle drives the NavPilot's *arrival* flag, so it switches together with the plugin. Waypoints
-closer together than the circle are each passed rather than skipped, and the route ends at its last
-waypoint. Freeboard-SK's own *Auto-advance to next point on arrival* is not needed.
+#### Turning onto the next leg
+
+The plugin switches at the *wheel-over point*: early enough before the waypoint that a turn at the
+pilot's rate (**Pilot turn rate in NAV**, default 2.2°/s) brings the boat onto the next leg without
+swinging past it. The next leg keeps running from the waypoint, so the boat starts its turn on the
+inside of that leg and comes onto it smoothly. The switch distance grows with the course change and
+the boat's speed.
+
+A turn at a finite rate always cuts the corner: the boat passes inside the waypoint. With the default
+turn rate and a 25 m arrival circle, roughly:
+
+| Course change | At 6 kn: switch before / passes inside the waypoint | At 3 kn |
+|---|---|---|
+| 30° | 25 m / 3 m | 25 m / 3 m |
+| 45° | 33 m / 7 m | 25 m / 5 m |
+| 60° | 46 m / 12 m | 25 m / 7 m |
+| 90° | 80 m / 33 m | 40 m / 17 m |
+| 110° | 115 m / 60 m | 57 m / 30 m |
+
+These are ideal turns. The NavPilot reacts a few seconds late and approaches a new leg at no more than
+about 45°, so on sharp turns it cuts across a little more than the table shows.
+
+The corner cannot be made tighter without the boat swinging past the next leg on the outside instead:
+the only ways to a tighter corner are a slower boat or a faster-turning pilot. Where there are
+hazards near a waypoint:
+
+- **Split a sharp turn with an extra waypoint.** At 6 kn two 45° turns pass about 7 m inside each
+  waypoint, where one 90° turn passes some 33 m inside.
+- **Slow down** for the turn: the cut shrinks with speed.
+- Keep the **arrival circle** small, e.g. 20–30 m (Freeboard-SK: Settings → Course). The plugin
+  switches at the arrival circle at the latest, and for gentle turns the circle is the switch point.
+
+**Pilot turn rate in NAV** tunes the trade-off: lower it and the plugin switches earlier (wider
+corners, never past the next leg); raise it and it switches later (tighter corners, but the boat may
+swing past the next leg if the pilot cannot turn that fast). 0 turns anticipation off, leaving the
+arrival circle and the passing of the waypoint.
+
+A waypoint passed outside both the wheel-over point and the arrival circle is switched on passing it,
+and the new leg then starts at the boat. Waypoints closer together than the switch distance are each
+passed rather than skipped, and the route ends at its last waypoint. Freeboard-SK's own *Auto-advance
+to next point on arrival* is not needed.
 
 ## Remote command (experimental, off by default)
 
