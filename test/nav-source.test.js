@@ -52,11 +52,11 @@ test('re-advertises when the NMEA 2000 output becomes available', () => {
 // loaded CI runner, so this waits up to `timeoutMs` rather than a fixed delay.
 async function waitFor(condition, timeoutMs = 2000) {
   const deadline = Date.now() + timeoutMs
-  while (!condition()) {
-    if (Date.now() > deadline) return false
+  while (Date.now() <= deadline) {
+    if (condition()) return true
     await new Promise((resolve) => setTimeout(resolve, 5))
   }
-  return true
+  return false
 }
 
 test('re-advertises periodically', async () => {
