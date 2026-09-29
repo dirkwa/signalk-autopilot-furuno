@@ -347,6 +347,23 @@ test('switches at the arrival circle without speed over ground', async () => {
   assert.strictEqual(await adv.check(before(15)), true)
 })
 
+test('treats a waypoint passed between two position samples as passed, not turned', async () => {
+  const app = withRoute(mockApp(routeCourse({ arrivalCircle: 20 })), [P0, P1, EAST_OF_P1])
+  const emitted = []
+  app.courseApi = {
+    courseInfo: { nextPoint: { position: P1 }, previousPoint: { position: P0 } },
+    emitCourseInfo: (noSave, ...paths) => emitted.push([noSave, ...paths])
+  }
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0, turnRate: 1.5 })
+  const offset = 50 / M_PER_DEG
+  assert.strictEqual(await adv.check({ latitude: P1.latitude - 150 / M_PER_DEG, longitude: offset }), false)
+  // The next sample, after a gap, is already 50 m past the waypoint and 50 m off the track.
+  const past = { latitude: P1.latitude + 50 / M_PER_DEG, longitude: offset }
+  assert.strictEqual(await adv.check(past), true)
+  assert.deepStrictEqual(emitted, [[false, 'previousPoint']], 'new leg starts at the boat')
+  assert.deepStrictEqual(app.courseApi.courseInfo.previousPoint.position, past)
+})
+
 test('does not anticipate a turn when well off the track', async () => {
   const app = withRoute(mockApp(routeCourse({ arrivalCircle: 20 })), [P0, P1, EAST_OF_P1])
   const adv = new RouteAdvancer(app, { minIntervalMs: 0, turnRate: 1.5 })
