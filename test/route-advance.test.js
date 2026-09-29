@@ -99,6 +99,19 @@ test('starts the new leg at the vessel through the Course API', async () => {
   assert.deepStrictEqual(emitted, [[false, 'previousPoint']])
 })
 
+test('starts the new leg at the server\'s current vessel position', async () => {
+  const app = mockApp(routeCourse())
+  const moved = { latitude: 0.0096, longitude: 0.0001 }
+  app.getSelfPath = (path) => (path === 'navigation.position' ? { value: moved } : undefined)
+  app.courseApi = {
+    courseInfo: { nextPoint: { position: P1 }, previousPoint: { position: P0 } },
+    emitCourseInfo: () => {}
+  }
+  const adv = new RouteAdvancer(app, { minIntervalMs: 0 })
+  assert.strictEqual(await approach(adv), true)
+  assert.deepStrictEqual(app.courseApi.courseInfo.previousPoint.position, moved)
+})
+
 test('prefers the server restartCourse for the new leg when it is offered', async () => {
   const app = mockApp(routeCourse())
   let restarts = 0
