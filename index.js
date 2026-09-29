@@ -88,6 +88,17 @@ module.exports = function(app) {
           'to the passed one.',
         default: true
       },
+      turnRate: {
+        type: 'number',
+        title: 'Pilot turn rate in NAV (°/s)',
+        description:
+          'How fast the NavPilot turns onto a new leg. The next route point is activated early ' +
+          'enough for a turn at this rate to join the next leg without overshooting it (turn ' +
+          'radius = speed ÷ turn rate). Lower it if the boat still overshoots the new leg, raise ' +
+          'it if the boat turns in too early. 0 turns this off, leaving the arrival circle.',
+        default: 2.2,
+        minimum: 0
+      },
       experimentalCommands: {
         type: 'boolean',
         title: 'Enable experimental remote commands (UNVERIFIED)',
