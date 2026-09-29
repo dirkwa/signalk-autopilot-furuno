@@ -55,20 +55,6 @@ module.exports = function(app) {
         description: 'Unique identifier for this autopilot',
         default: '711c'
       },
-      hullType: {
-        type: 'string',
-        title: 'Hull Type',
-        description: 'Type of vessel hull for autopilot tuning',
-        enum: [
-          'sail',
-          'sailSlowTurn',
-          'sailCatamaran',
-          'power',
-          'powerSlowTurn',
-          'powerFastTurn'
-        ],
-        default: 'power'
-      },
       detectionTimeout: {
         type: 'number',
         title: 'Detection Timeout (seconds)',
