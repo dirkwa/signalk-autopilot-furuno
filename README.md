@@ -11,9 +11,32 @@ is disabled by default — see "Remote command" below.
 - **Mode feedback** from PGN 127237 `Steering Mode`:
   `Main Steering` → standby, `Heading Control Standalone` → auto, `Track Control` → nav.
 - **Rudder / heading feedback** from PGN 127245 / 127237.
-- **Route following (nav mode):** the NavPilot follows an active route on its own from the
-  standard route PGNs (129285 / 129284 / 129283). To command a GOTO from Signal K, emit those
-  as an active route source — use https://github.com/dirkwa/signalk-to-nmea2000.
+- **NAV mode from Signal K:** the NavPilot steers to a destination set in Signal K
+  (e.g. Freeboard-SK "Navigate here") — see below.
+
+## NAV mode: steering to a Signal K destination
+
+In NAV mode the NavPilot follows the standard navigation PGNs 129283 (cross track error),
+129284 (navigation data) and 129285 (route/waypoint information) from its selected NAV data
+source. Signal K can be that source:
+
+1. Emit the navigation PGNs with
+   [signalk-to-nmea2000](https://github.com/dirkwa/signalk-to-nmea2000): enable
+   "Cross Track Error (129283)", "Navigation Data (129284)" and "Route/WP Information (129285)".
+2. Leave **Advertise Signal K as NavPilot NAV data source** enabled in this plugin (default).
+   The NavPilot only offers a device as NAV data source if that device announces the navigation
+   PGNs in its transmit PGN list (PGN 126464). The gateway Signal K sends through does not, so
+   the plugin broadcasts that list on Signal K's NMEA 2000 output.
+3. On the NavPilot, select Signal K's NMEA 2000 interface as NAV data source:
+   **Menu → Other Menu → NAV Option → Source**. Devices are listed as `NMEA 20:<id>`; the entry
+   for the gateway Signal K transmits through appears once this plugin is running. Set it as
+   Source1 or Source2 — with *Data Source: Both* another navigator (e.g. TimeZero) stays usable
+   as the other source.
+4. Set a destination in Signal K, then press **NAV** on the NavPilot and confirm with the
+   **ENTER** knob.
+
+Without step 3 the NavPilot ignores Signal K's navigation data and raises *No nav data* shortly
+after NAV is engaged.
 
 ## Remote command (experimental, off by default)
 

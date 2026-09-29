@@ -14,7 +14,9 @@ Discovered by the appstore via the `signalk-node-server-plugin` / `signalk-categ
 - [lib/AutopilotProvider.js](lib/AutopilotProvider.js) — the core. Registers the provider, subscribes to Signal K paths, listens for PGN 127237 on `N2KAnalyzerOut`, maps feedback into autopilot state, emits alarms/notifications, runs the connection watchdog, and implements the provider command methods (all gated — see below).
 - [lib/N2KCommands.js](lib/N2KCommands.js) — builds/sends the (experimental) command PGNs. Emits on `nmea2000JsonOut`.
 - [lib/SignalKPaths.js](lib/SignalKPaths.js) — subscribes to `navigation.heading*`, `steering.rudderAngle`, and XTE via `streambundle.getSelfBus`, for autopilot-detection and internal state.
+- [lib/NavSourceAdvertiser.js](lib/NavSourceAdvertiser.js) — broadcasts a PGN 126464 Transmit PGN list containing 129283/129284/129285 on `nmea2000JsonOut` (on start, on `nmea2000OutAvailable`, and every 60 s), so the NavPilot offers Signal K's N2K interface as NAV data source. Gated by the `advertiseNavSource` setting (default on).
 - [test/feedback.test.js](test/feedback.test.js) — `node:test` smoke suite for the feedback mapping, alarms, watchdog, and command gating.
+- [test/nav-source.test.js](test/nav-source.test.js) — `node:test` suite for the Transmit PGN list advertisement.
 
 ## How feedback works (the part that works)
 
@@ -24,6 +26,10 @@ Everything hangs off **PGN 127237 (Heading/Track Control)** delivered on the `N2
 - `Heading-To-Steer (Course)` → `target`.
 - Limit flags → `Off-Heading Limit Exceeded` maps to the standard `heading` alarm, `Off-Track Limit Exceeded` to `xte`; `Rudder Limit Exceeded` / `Override` go out as notifications on `notifications.steering.autopilot.*`. All edge-triggered via `setAlarm()` / `setNotification()`.
 - A watchdog (`checkConnection`) raises `connectionLost` if no 127237 arrives within `connectionTimeout` seconds, and clears it on recovery.
+
+## NAV mode from Signal K (NAV data source)
+
+The NavPilot steers NAV mode from the navigation PGNs 129283/129284/129285 of the device(s) selected under **Menu → Other Menu → NAV Option → Source** — and only offers a device there if its PGN 126464 Transmit PGN list includes those PGNs. Navigation PGNs from any other source address are ignored, and the pilot raises *No nav data* shortly after NAV is engaged. The gateway Signal K transmits through does not list them, so `NavSourceAdvertiser` broadcasts a Transmit PGN list on Signal K's output (same source address). The navigation PGNs themselves come from signalk-to-nmea2000, not from this plugin. Don't remove or narrow the advertisement without re-testing NAV on the pilot.
 
 ## Signal K Autopilot API gotchas (get these wrong and it silently breaks)
 
