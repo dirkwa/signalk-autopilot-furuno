@@ -1,0 +1,25 @@
+name: SignalK Plugin CI
+
+# SignalK's reusable plugin CI: tests on Linux x64/arm64, macOS and Windows
+# with Node 22 and 24, on armv7 (Cerbo GX) under QEMU, and installs the plugin
+# into a running Signal K server. The plugin registry reads the result of the
+# runs on main for the plugin's score.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer commit on a pull request supersedes its running check; a run on
+# main is never cancelled, since that is the one the registry reads.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  plugin-ci:
+    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@master
+    with:
+      enable-signalk-integration: true
